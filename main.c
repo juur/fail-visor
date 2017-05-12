@@ -20,6 +20,7 @@
 #include "pci_ids.h"
 #include "apicdef.h"
 #include "bios.h"
+#include "serial.h"
 
 #define __SYM_E820      0x9fc00
 
@@ -624,14 +625,16 @@ int main(int ac, char *av[])
 	struct tm *tm;
 	time_t now;
 	void *dest;
-	uint8_t ser_ier = 0x0;
-	uint8_t ser_lcr = 0x3;
+	uint8_t ser_inten = 0x0;
+	uint8_t ser_lcr = SER_LCR_8;
 	uint8_t ser_iir = 0x0;
 	uint8_t ser_mcr = 0x0;
-	uint8_t ser_dll = 0x1;
-	uint8_t ser_dlm = 0x0;
-	uint32_t tmp32=0;
-	uint32_t *ptr32=&tmp32;
+	uint8_t ser_lsb_div = 0x1;
+	uint8_t ser_msb_div = 0x0;
+	uint8_t ser_msr = SER_MSR_CTS;
+	uint8_t ser_scratch;
+	//uint32_t tmp32=0;
+	uint32_t *ptr32;//=&tmp32;
 	union pci_config_addr pciaddr;
 	int pcireg;
 	struct pci_config_head *pcidev = NULL;
@@ -718,7 +721,7 @@ int main(int ac, char *av[])
 					case 0xf0:
 					case 0xf1:
 						break;
-					case 0x3f8: // Data +0
+					case (COM1+SER_DATA): // Data +0
 						if(!dlab) {
 							if(kvm_run->io.direction) {
 								printf("%c",data[0]);
@@ -728,60 +731,67 @@ int main(int ac, char *av[])
 							}
 						} else {
 							if(kvm_run->io.direction) {
-								ser_dll = data[0];
+								ser_lsb_div = data[0];
 							} else {
-								data[0] = ser_dll;
+								data[0] = ser_lsb_div;
 							}
 						}
 						break;
-					case 0x3f9: // IER/DLL +1
+					case (COM1+SER_INTEN): // IER/DLL +1
 						if(dlab) {
 							if(kvm_run->io.direction) {
-								ser_dlm = data[0];
+								ser_msb_div = data[0];
 							} else {
-								data[0] = ser_dlm;
+								data[0] = ser_msb_div;
 							}
 						} else {
 							if(kvm_run->io.direction) {
-								ser_ier = data[0];
+								ser_inten = data[0];
 							} else {
-								data[0] = ser_ier;
+								data[0] = ser_inten;
 							}
 						}
 						break;
-					case 0x3fa: // IIR/FCR +2
+					case (COM1+SER_FCR): // IIR/FCR +2
 						if(kvm_run->io.direction) {
 							// we're an 8250 so no FCR
 						} else {
 							data[0] = ser_iir;
 						}
 						break;
-					case 0x3fb: // LCR +3
+					case (COM1+SER_LCR): // LCR +3
 						if(kvm_run->io.direction) {
-							if(data[0] & 0x80) dlab = 1;
+							if(data[0] & SER_LCR_DLAB) dlab = 1;
 							else dlab = 0;
 							ser_lcr = data[0];
 						} else {
 							data[0] = ser_lcr;
 						}
 						break;
-					case 0x3fc: // MCR +4
+					case (COM1+SER_MCR): // MCR +4
 						if(kvm_run->io.direction) {
 							ser_mcr = data[0];
 						} else {
 							data[0] = ser_mcr;
 						}
 						break;
-					case 0x3fd: // LSR +5
+					case (COM1+SER_LSR): // LSR +5
 						if(kvm_run->io.direction) {
 						} else {
-							data[0] = (1<<6)|(1<<5);
+							data[0] = SER_LSR_THR|SER_LSR_THR_IDLE;
 						}
 						break;
-					case 0x3fe: // MSR +6
+					case (COM1+SER_MSR): // MSR +6
 						if(kvm_run->io.direction) {
 						} else {
-							data[0] = (1<<4);
+							data[0] = ser_msr;
+						}
+						break;
+					case (COM1+SER_SCRATCH):
+						if(kvm_run->io.direction) {
+							ser_scratch = data[0];
+						} else {
+							data[0] = ser_scratch;
 						}
 						break;
 					case 0xcfb: // PCI conf1
@@ -791,10 +801,12 @@ int main(int ac, char *av[])
 							pciaddr.val = *(uint32_t*)data;
 							pcidev = find_pci(pciaddr.val);
 							if(pcidev){
+								/*
 								printf("pci-addr: %x [%x.%x.%x] ", 
 										pciaddr.val,
 										pciaddr.bus, pciaddr.dev, pciaddr.func);
 								printf("pci-dev: %p\n", pcidev);
+								*/
 							}
 						} else {
 						}
@@ -852,10 +864,11 @@ int main(int ac, char *av[])
 								if(pcireg >= 0x10 && pcireg < 0x28 && pcidev->bars[PCI_REG_BAR(pcireg)] == 0xffffffff) {
 									*data = (~(*data)) - 1;
 								}
-								printf("pci-head: xfer=");
-								for(i=0;i<kvm_run->io.size;i++)
-									printf("%02x ", data[i]);
-								printf("\n");
+//								printf("pci-head: xfer=");
+//								
+//								for(i=0;i<kvm_run->io.size;i++)
+//									printf("%02x ", data[i]);
+//								printf("\n");
 							} else {
 								switch(pciaddr.reg) {
 									case 0x00: *ptr32 = 0x0000ffff; break;
@@ -869,7 +882,6 @@ int main(int ac, char *av[])
 						data[0] = 0;
 						break;
 					case 0x3ef:
-					case 0x3ff:
 					case 0x3e9:
 					case 0x3e8:
 					case 0x3eb:

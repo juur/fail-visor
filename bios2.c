@@ -20,7 +20,7 @@ struct biosregs {
 };
 
 #define BIOSCALL __attribute__((regparm(3)))
-
+/*
 static inline void outportb(uint16_t port, uint8_t data)
 {
 	asm volatile("outb %1, %0" : : "Nd" (port), "a" (data));
@@ -32,7 +32,7 @@ static inline uint8_t inportb(uint16_t port)
 	asm volatile("inb %1, %0" : "=a" (rv) : "dN" (port));
 	return rv;
 }
-
+*/
 static inline void set_fs(uint16_t seg)
 {
 	asm volatile("movw %0,%%fs"::"rm"(seg));
@@ -44,20 +44,24 @@ static inline uint8_t rdfs8(uint32_t addr)
 	asm volatile("addr32 movb %%fs:%1,%0":"=q"(ret):"m"(*(uint32_t *)addr));
 	return ret;
 }
-
+/*
 static inline uint16_t rdfs16(uint32_t addr)
 {
 	uint16_t ret;
 	asm volatile("addr32 movw %%fs:%1,%0":"=q"(ret):"m"(*(uint32_t *)addr));
 	return ret;
 }
+*/
 
 static inline uint32_t rdfs32(uint32_t addr)
 {
-	uint32_t ret;
-	asm volatile("addr32 movl %%fs:%1,%0":"=q"(ret):"m"(*(uint32_t *)addr));
+	uint32_t ret = 0;
+	if(addr != 0)
+		asm volatile("addr32 movl %%fs:%1,%0":"=q"(ret):"m"(*(uint32_t *)addr));
 	return ret;
 }
+
+/*
 
 static BIOSCALL bool isprint(uint8_t c)
 {
@@ -74,7 +78,8 @@ static BIOSCALL void putch(uint8_t c)
 //	}
 	outportb(0x3f8, c);
 }
-
+*/
+/*
 static BIOSCALL int putsn(char *s, int length)
 {
 	int i;
@@ -92,7 +97,8 @@ static BIOSCALL int strlen(char *s)
 
 	return retval;
 }
-
+*/
+/*
 static inline int puts(char *s)
 {
 	return putsn(s, strlen(s));
@@ -103,7 +109,8 @@ BIOSCALL static void printnibble(uint8_t val)
 	if(val>9) putch('a'+(val-10));
 	else putch('0'+val);
 }
-
+*/
+/*
 BIOSCALL static void printbyte(uint8_t val)
 {
 	uint8_t high = (val & 0xf0) >> 4;
@@ -112,11 +119,13 @@ BIOSCALL static void printbyte(uint8_t val)
 	printnibble(high);
 	printnibble(low);
 }
+*/
 
+/*
 BIOSCALL static void printu32(uint32_t val)
 {
 	int i;
-	uint8_t *tmp = &val;
+	uint8_t *tmp = (uint8_t *)&val;
 	for(i=3;i>=0;i--)
 	{
 		printbyte(tmp[i] & 0xff);
@@ -131,7 +140,7 @@ BIOSCALL static void printu16(uint16_t val)
 	printbyte(tmp[1] & 0xff);
 	printbyte(tmp[0] & 0xff);
 }
-
+*/
 
 BIOSCALL void doe820(struct biosregs *r)
 {
@@ -149,7 +158,8 @@ BIOSCALL void doe820(struct biosregs *r)
 
 	uint8_t *dst = (void *)r->edi;
 	uint8_t *src = (uint8_t *)(__SYM_E820 + sizeof(uint32_t)+ (sizeof(struct e820entry) * idx));
-	uint32_t saddr,daddr;
+	uint32_t saddr;
+	//,daddr;
 
 	for(i=0;i<sizeof(struct e820entry);i++) {
 		saddr = (uint32_t)src++;

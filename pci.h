@@ -1,3 +1,6 @@
+#ifndef _PCI_H
+#define _PCI_H
+
 #include <stdint.h>
 
 /*
@@ -33,13 +36,13 @@ struct pci_bar {
 		struct {
 			unsigned type:2;
 			unsigned prefetchable:3;
-			unsigned base:28;
+			uint32_t base:28;
 		} mem;
 		struct {
 			unsigned res:1;
-			unsigned base:30;
+			uint32_t base:30;
 		} io;
-		unsigned val:31;
+		uint32_t val:31;
 	};
 } __attribute__((packed));
 
@@ -87,3 +90,5 @@ struct pci_config_head {
 #define PCI_DEVICE_ID_VIRTIO_BLN        0x1005
 #define PCI_DEVICE_ID_VIRTIO_SCSI       0x1008
 #define PCI_DEVICE_ID_VIRTIO_9P         0x1009
+
+#endif

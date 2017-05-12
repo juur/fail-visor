@@ -21,7 +21,7 @@ bios-rom.o: bios-rom.S bios.bin
 bios.h: bios.elf
 	nm bios.elf | awk '/ [TtBR] / { print "#define _SYM_"$$3 "\t0x"$$1 }' > bios.h
 
-main.c: bios.h e820.h
+main.c: bios.h e820.h pci.h
 
 main: main.o bios-rom.o
 	$(CC) -o main main.o bios-rom.o
