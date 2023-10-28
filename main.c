@@ -12,15 +12,16 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <asm/msr-index.h>
 #include <asm/bootparam.h>
 #include <linux/pci_regs.h>
 #include <time.h>
+
 #include "pci.h"
 #include "pci_ids.h"
 #include "apicdef.h"
 #include "bios.h"
 #include "serial.h"
+#include "msr.h"
 
 #define __SYM_E820      0x9fc00
 
@@ -45,6 +46,22 @@ struct irq_handler {
 	unsigned long addr;
 	size_t	size;
 	void *handler;
+};
+
+struct e820entry {
+	uint64_t addr;
+	uint64_t size;
+	uint32_t type;
+} __attribute__((packed));
+
+#define E820MAX 128
+#define E820_X_MAX E820MAX
+#define E820_RAM 1
+#define E820_RESERVED 2
+
+struct e820map {
+	uint32_t nr_map;
+	struct e820entry map[E820_X_MAX];
 };
 
 #define NR_INTR_VECTORS	256

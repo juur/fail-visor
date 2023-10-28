@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -g
+CFLAGS := -g -std=gnu11
 BIOS := -m32 -march=i386 -fno-stack-protector -fno-builtin -fno-pic -fomit-frame-pointer -fdata-sections
 
 default:	main
