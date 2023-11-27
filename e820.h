@@ -1,6 +1,10 @@
+#include <stdint.h>
+
 struct e820entry {
-	uint64_t	addr;
-	uint64_t	size;
+	uint32_t	addr_low;
+	uint32_t	addr_high;
+	uint32_t	size_low;
+	uint32_t	size_high;
 	uint32_t	type;
 } __attribute__((packed));
 

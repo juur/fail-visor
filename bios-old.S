@@ -9,7 +9,6 @@
     pushl   %edi
     pushl   %esi
     pushl   %ebp
-    pushl   %esp
     pushl   %edx
     pushl   %ecx
     pushl   %ebx
@@ -17,17 +16,16 @@
 .endm
 
 .macro RESTORE_BIOSREGS
-    popl    %eax
-    popl    %ebx
-    popl    %ecx
-    popl    %edx
-    popl    %esp
-    popl    %ebp
-    popl    %esi
-    popl    %edi
-    popl    %ds
-    popl    %es
     popl    %fs
+    popl    %es
+    popl    %ds
+    popl    %edi
+    popl    %esi
+    popl    %ebp
+    popl    %edx
+    popl    %ecx
+    popl    %ebx
+    popl    %eax
 .endm
 
 ENTRY(bios_intfake)
@@ -39,7 +37,8 @@ ENTRY_END(bios_intfake)
 ENTRY(bios_int15)
 	SAVE_BIOSREGS
 
-	movl	%esp, %eax
+	//movl	%esp, %eax
+	movl	%esp, %edi
 	call	int15_handler
 	
 	RESTORE_BIOSREGS

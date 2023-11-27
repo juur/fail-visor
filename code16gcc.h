@@ -1,1 +1,1 @@
-asm(".code16gcc");
+__asm__(".code16gcc");
