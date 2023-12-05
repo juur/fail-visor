@@ -28,8 +28,8 @@ default:	main
 #	objcopy -O binary bios.elf bios.bin
 #
 
-bios.bin: bios.nasm
-	nasm -Wall bios.nasm -o bios.bin
+bios.bin: bios.s
+	nasm -Wall bios.s -o bios.bin
 
 bios-rom.o: bios-rom.S bios.bin
 

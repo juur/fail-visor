@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <term.h>
 #include <ctype.h>
+#include <errno.h>
+#include <signal.h>
 
 #include <linux/kvm.h>
 #include <asm/bootparam.h>
@@ -381,7 +383,6 @@ static void load_linux_kernel(const char *file_name, const char *initrd_file_nam
 #undef BOOT_SP
 }
 
-#if 0
 static void draw_screen(void)
 {
     static const char *term_clear = NULL;
@@ -405,7 +406,6 @@ static void draw_screen(void)
     }
     usleep(2000);
 }
-#endif
 
 
 int main(int ac, char *av[])
@@ -896,25 +896,34 @@ usage_fail:
         .control = KVM_GUESTDBG_ENABLE|KVM_GUESTDBG_SINGLESTEP,
     };
 
-    //if (ioctl(vcpufd, KVM_SET_GUEST_DEBUG, &kvm_guest_debug) == -1)
-      //  warn("KVM_SET_GUEST_DEBUG");
+    if (ioctl(vcpufd, KVM_SET_GUEST_DEBUG, &kvm_guest_debug) == -1)
+        warn("KVM_SET_GUEST_DEBUG");
 
     setupterm(NULL, STDOUT_FILENO, NULL);
+
+    signal(SIGALRM, draw_screen);
+
+    alarm(1);
 
     while (1) {
         //struct kvm_regs regs;
         ret = ioctl(vcpufd, KVM_RUN, NULL);
-        if (ret == -1)
-            err(EXIT_FAILURE, "KVM_RUN");
+        if (ret == -1) {
+            if (errno != EINTR)
+                err(EXIT_FAILURE, "KVM_RUN");
+            else
+                continue;
+        }
         switch (kvm_run->exit_reason) {
             case KVM_EXIT_DEBUG:
                 {
-                    //static int count = 101;
+                    static int count = 101;
 
-                    //if (count > 100) {
-                    //    draw_screen();
-                    //    count = 0;
-                    //}
+                    if (count > 100) {
+                        draw_screen();
+                        count = 0;
+                    }
+                    /*
                        ioctl(vcpufd, KVM_GET_REGS, &regs);
                        ioctl(vcpufd, KVM_GET_SREGS, &sregs);
                        printf(
@@ -935,7 +944,7 @@ usage_fail:
                        (regs.rflags & (1<<7)) ? "SF " : "",
                        (regs.rflags & (1<<8)) ? "TF " : "",
                        (regs.rflags & (1<<9)) ? "IF " : ""
-                       );
+                       );*/
                 }
                 break;
             case KVM_EXIT_HLT:
@@ -943,18 +952,19 @@ usage_fail:
                 return 0;
             case KVM_EXIT_IO:
                 //draw_screen();
-
-                if (kvm_run->io.port < 0x3f8 || kvm_run->io.port > 0x3ff) {
                 data = (uint8_t *)kvm_run + kvm_run->io.data_offset;
-                printf("KVM_EXIT_IO %s %x/%x @ %x", 
-                        kvm_run->io.direction ? "wr" : "rd",
-                        kvm_run->io.size,
-                        kvm_run->io.count,
-                        kvm_run->io.port);
-                if(kvm_run->io.direction)
-                    printf(" data[0]=%x", data[0]);
-                printf("\n");
-                }
+
+                /*
+                if (kvm_run->io.port < 0x3f8 || kvm_run->io.port > 0x3ff) {
+                    printf("KVM_EXIT_IO %s (%#x * %#x)bytes @ %#x", 
+                            kvm_run->io.direction ? "wr" : "rd",
+                            kvm_run->io.size,
+                            kvm_run->io.count,
+                            kvm_run->io.port);
+                    if(kvm_run->io.direction)
+                        printf(" data[0]=%x", data[0]);
+                    printf("\n");
+                }*/
                 switch(kvm_run->io.port) {
                     case 0x60: /* PS/2 controller Data Port */
                         if (kvm_run->io.direction) {
@@ -1139,15 +1149,17 @@ usage_fail:
                     case 0xcfd:
                     case 0xcfe:
                     case 0xcff:
+                        //draw_screen();
 #define PCI_REG_BAR(x) (((x)-0x10)/4)
                         ptr32 = (uint32_t *)data;
                         pcireg = pciaddr.reg<<2;
                         offset = kvm_run->io.port - 0xcfc;
-                        //printf("pci: %s reg=%x len=%x\n", 
-                          //      kvm_run->io.direction ? "wr" : "rd",
-                            //    pcireg,
-                              //  kvm_run->io.size);
+                        printf("pci: %s reg=%x len=%x\n", 
+                                kvm_run->io.direction ? "wr" : "rd",
+                                pcireg,
+                                kvm_run->io.size);
                         if(kvm_run->io.direction) {
+                            break;
                             if(pcidev) {
                                 if(pcireg >= 0x10 && pcireg < 0x28) {
                                     //									tmp32 = (pcireg - 0x10)/4;
@@ -1163,6 +1175,10 @@ usage_fail:
                                 }
                             }
                         } else {
+                            int cnt = kvm_run->io.count * kvm_run->io.size;
+                            while(cnt)
+                                data[cnt--] = 0;
+                            break;
                             if(pcidev) {
                                 dest = pcidev;
                                 dest += pcireg;
